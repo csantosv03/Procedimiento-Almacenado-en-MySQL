@@ -1,0 +1,82 @@
+use inmuebles; # usamos la base de datos de inmuebles
+drop PROCEDURE if EXISTS NuevaVenta; 
+# para asegurarnos su funcionalidad borramos el mismo procedimiento si existe ya
+DELIMITER //
+CREATE PROCEDURE NuevaVenta( in nombrecomprador varchar(50), in apellidoscomprador varchar(50),in idinmueble int(11),in localidadventa varchar(40), in importeventa float, in descripcionventa varchar(50))
+# creamos el proceso pasandole por parámetro los requisitos necesarios
+proceso:BEGIN
+# añadimos la etiqueta “proceso” para que más adelante cuando no se cumpla una       # condición se salga del procedimiento
+    DECLARE idcomprador int(11); 
+    # declaramos la variable local donde se almacena el ID del comprador
+    DECLARE ncomp varchar(50);
+    # declaramos la variable local donde se almacena el nombre del comprador
+    DECLARE acomp varchar(50);
+    # declaramos la variable local donde se almacena el apellido del comprador
+    DECLARE idmunicipio int(11);
+    # declaramos la variable local donde se guardará el ID del municipio que se  
+    # introduce por parámetros
+    DECLARE inmuebleid int(11);
+    # declaramos la variable local que hará lo mismo que la anterior pero con el ID de 
+    # inmueble
+    DECLARE codvend varchar(10);
+    # declaramos la variable local donde se guardará el código del vendedor para que se
+    # añada a la venta
+    DECLARE fech date;
+    # variable local que añadirá la fecha actual cada vez que se agregue una venta
+    
+	SELECT id INTO idcomprador FROM personas WHERE nombre LIKE 	nombrecomprador AND apellidos LIKE apellidoscomprador;
+      # se guardará el id del comprador solo y cuando el nombre y apellidos del 
+      # se corresponda con los introducidos por parámetros
+    	SELECT nombre INTO ncomp from personas WHERE nombre LIKE 	nombrecomprador AND apellidos LIKE apellidoscomprador;
+      # lo mismo que el anterior pero con el nombre del comprador
+   	SELECT apellidos into acomp FROM personas WHERE apellidos LIKE 	apellidoscomprador AND nombre like nombrecomprador;
+      # lo mismo que la anterior pero esta vez con los apellidos
+   	SELECT id INTO idmunicipio FROM municipios WHERE nombre like 	localidadventa;
+      # se guardará en la variable la id del municipio solo y cuando su nombre, sea el
+      # mismo que el introducido por parámetros
+    	SELECT id INTO inmuebleid FROM inmuebles WHERE id = idinmueble;
+      # lo mismo que la anterior, pero en este caso con el ID de inmueble
+    	SELECT codigovendedor INTO codvend from personas p INNER JOIN inmuebles i 	ON p.id = i.PROPIETARIO_ID
+   										WHERE i.ID = 	inmuebleid;
+      # guardamos el codigo de vendedor en la variable mientras que el propietario de
+      # ese inmueble sea el mismo que el ID de una persona donde el id del inmueble
+      # sea el mismo que el que se introduce por parámetros
+    	SELECT year(now()) INTO fech;
+      # almacenamos en esta variable la función que nos devuelve la fecha actual
+    # con los siguientes if comprobamos que cada una de las variables declaradas,
+    # correspondientes a los atributos pedidos por parámetros, al introducir los datos
+    # de la venta compruebe si existen en la base de datos
+    if ncomp is null
+    THEN
+    	SELECT 'No existe el comprador en la Base de Datos';
+        LEAVE proceso; 
+    END IF;
+    if acomp is null
+    THEN
+    	SELECT 'Apellido no correspondiente';
+        LEAVE proceso;
+    END IF;
+    IF idmunicipio IS null
+    THEN
+    	SELECT 'Municipio inexistente en la Base de Datos';
+    END IF;
+    if inmuebleid is null
+    THEN
+    	SELECT 'ID de inmueble inválido';
+        LEAVE proceso;
+    END IF;
+    IF codvend is null
+    THEN
+    	SELECT 'Código vendedor no válido';
+        LEAVE proceso;
+    END IF;
+    # una vez cumplida todas las condiciones, es decir, habiendo comprobado que
+    # existen todos los datos, se procederá a la inserción de una nueva venta
+    INSERT INTO ventas (descripcion, inmueble_id, comprador_id, vendedor_id, importe, municipiodefirmaventa_id, fecha) VALUES
+    (descripcionventa, inmuebleid, idcomprador, codvend, importeventa, idmunicipio, fech);
+    # actualizamos el propietario del inmueble, ya que al producirse una venta de estos,
+    # por lógica, su propietario va a ser uno nuevo, el comprador
+    UPDATE inmuebles SET propietario_id = idcomprador WHERE id = inmuebleid;
+    	    
+END//
+DELIMITER ;
